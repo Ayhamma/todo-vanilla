@@ -40,7 +40,7 @@ const loadTasks = () => {
   }
 };
 
-// Helper to avoid innerHTML: remove all children safely
+// Helper to avoid innerHTML
 function clearElement(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
 }
@@ -50,84 +50,66 @@ let tasks = loadTasks(); // [{id,title,due,completed,createdAt,order}]
 
 let state = {
   search: "",
-  filter: "all",       // all | done | todo
-  sort: "manual",      // manual | dueAsc | dueDesc | createdAsc | createdDesc
+  filter: "all",    // all | done | todo
+  sort: "manual",   // manual | dueAsc | dueDesc | createdAsc | createdDesc
 };
 
 // ---------- Styles (Injected) ----------
 const css = `
 :root{
-  --bg:#0f172a;
-  --panel:#111827;
-  --muted:#9ca3af;
-  --txt:#e5e7eb;
-  --accent:#22c55e;
-  --accent-2:#3b82f6;
-  --danger:#ef4444;
-  --warning:#f59e0b;
-  --card:#1f2937;
-  --border:#374151;
-  --shadow: 0 10px 25px rgba(0,0,0,.35);
+  --bg:#0f172a; --panel:#111827; --muted:#9ca3af; --txt:#e5e7eb;
+  --accent:#22c55e; --accent-2:#3b82f6; --danger:#ef4444; --warning:#f59e0b;
+  --card:#1f2937; --border:#374151; --shadow: 0 10px 25px rgba(0,0,0,.35);
 }
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
   margin:0; background:linear-gradient(180deg, var(--bg), #030712);
-  color:var(--txt); font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+  color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;
 }
-.container{ max-width: 960px; margin: 32px auto; padding: 16px; }
+.container{ max-width:960px; margin:32px auto; padding:16px; }
 .header{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
 .brand{ display:flex; align-items:center; gap:10px; }
-.brand h1{ margin:0; font-size: clamp(22px,4vw,28px); letter-spacing: .3px; }
+.brand h1{ margin:0; font-size:clamp(22px,4vw,28px); letter-spacing:.3px; }
 .badge{ font-size:12px; color:var(--muted) }
 .panel{ background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:var(--shadow); }
 .form-row{ display:flex; flex-wrap:wrap; gap:10px; }
-.input, .select, .btn{
+.input,.select,.btn{
   border:1px solid var(--border); background:var(--card); color:var(--txt);
   border-radius:12px; padding:10px 12px; outline:none;
 }
-.input:focus, .select:focus{ border-color:var(--accent-2) }
-.btn{ cursor:pointer; transition: transform .06s ease }
-.btn:active{ transform: scale(.98) }
-.btn-primary{ background:var(--accent-2); border-color:transparent; color:white; }
-.btn-danger{ background:var(--danger); border-color:transparent; color:white; }
+.input:focus,.select:focus{ border-color:var(--accent-2) }
+.btn{ cursor:pointer; transition:transform .06s ease }
+.btn:active{ transform:scale(.98) }
+.btn-primary{ background:var(--accent-2); border-color:transparent; color:#fff; }
 .btn-ghost{ background:transparent; }
-.toolbar{ margin-top:14px; display:grid; gap:10px; grid-template-columns: 1fr repeat(3, minmax(120px, 180px)); }
-@media (max-width:800px){
-  .toolbar{ grid-template-columns: 1fr 1fr; }
-}
+.toolbar{ margin-top:14px; display:grid; gap:10px; grid-template-columns:1fr repeat(3, minmax(120px, 180px)); }
+@media (max-width:800px){ .toolbar{ grid-template-columns:1fr 1fr; } }
 .list{ margin-top:16px; display:flex; flex-direction:column; gap:10px; }
 .item{
-  display:grid; grid-template-columns: 32px 1fr 140px 220px; gap:12px;
+  display:grid; grid-template-columns:32px 1fr 140px 220px; gap:12px;
   align-items:center; background:var(--card); border:1px solid var(--border);
-  border-radius:14px; padding:10px; transition: background .2s ease, border-color .2s ease;
+  border-radius:14px; padding:10px; transition:background .2s, border-color .2s;
 }
-@media (max-width:780px){
-  .item{ grid-template-columns: 28px 1fr; grid-auto-rows:auto; }
-  .item .right, .item .meta{ grid-column: 1 / -1; }
-}
+@media (max-width:780px){ .item{ grid-template-columns:28px 1fr; } .item .right,.item .meta{ grid-column:1/-1; } }
 .item.dragging{ opacity:.7; border-style:dashed }
 .checkbox{
   width:20px; height:20px; border-radius:6px; appearance:none; -webkit-appearance:none;
   border:2px solid var(--muted); display:grid; place-content:center; cursor:pointer; background:transparent;
 }
 .checkbox:checked{ border-color:var(--accent); background:var(--accent) }
-.checkbox:checked::after{ content:""; width:10px; height:10px; border-radius:3px; background:white; display:block; }
+.checkbox:checked::after{ content:""; width:10px; height:10px; border-radius:3px; background:#fff; display:block; }
 .title{ font-weight:600; }
-.title.completed{ text-decoration: line-through; color:var(--muted) }
+.title.completed{ text-decoration:line-through; color:var(--muted) }
 .meta{ font-size:12px; color:var(--muted) }
 .tags{ display:flex; gap:6px; align-items:center; }
 .tag{ font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); color:var(--muted); }
 .tag.due-soon{ border-color:var(--warning); color:var(--warning) }
 .tag.overdue{ border-color:var(--danger); color:var(--danger) }
 .right{ display:flex; gap:8px; justify-content:flex-end; }
-.icon-btn{
-  background:transparent; border:1px solid var(--border); color:var(--txt); border-radius:10px; padding:8px 10px; cursor:pointer;
-}
+.icon-btn{ background:transparent; border:1px solid var(--border); color:var(--txt); border-radius:10px; padding:8px 10px; cursor:pointer; }
 .icon-btn:hover{ border-color:var(--accent-2) }
-.empty{
-  text-align:center; color:var(--muted); padding:24px; border:1px dashed var(--border); border-radius:12px; background:rgba(255,255,255,.02)
-}
+.empty{ text-align:center; color:var(--muted); padding:24px; border:1px dashed var(--border); border-radius:12px; background:rgba(255,255,255,.02) }
 .footer-note{ margin-top:16px; color:var(--muted); font-size:12px; text-align:center }
 .small{ font-size:12px; color:var(--muted) }
 `;
@@ -166,7 +148,7 @@ function buildApp() {
     el("div", { class: "small", text: "All data stored locally (localStorage)" })
   );
 
-  // Create Panel: Add Task
+  // Create Panel
   const createPanel = el("div", { class: "panel" });
   const titleInput = el("input", {
     class: "input",
@@ -177,11 +159,10 @@ function buildApp() {
     attrs: { type: "date" },
   });
   const addBtn = el("button", { class: "btn btn-primary", text: "Add Task" });
-
   const createRow = el("div", { class: "form-row" }, titleInput, dateInput, addBtn);
   createPanel.appendChild(createRow);
 
-  // Toolbar: search / filter / sort
+  // Toolbar
   const toolbar = el("div", { class: "toolbar" });
   const searchInput = el("input", {
     class: "input",
@@ -203,21 +184,14 @@ function buildApp() {
     el("option", { text: "Created (old → new)", attrs: { value: "createdAsc" } }),
     el("option", { text: "Created (new → old)", attrs: { value: "createdDesc" } })
   );
-  const clearAllBtn = el("button", {
-    class: "btn btn-ghost",
-    text: "Clear Completed",
-  });
-
+  const clearAllBtn = el("button", { class: "btn btn-ghost", text: "Clear Completed" });
   toolbar.append(searchInput, filterSelect, sortSelect, clearAllBtn);
 
   // List
   const list = el("div", { class: "list", attrs: { id: "task-list" } });
 
   // Footer note
-  const note = el("div", {
-    class: "footer-note",
-    text: "Tip: drag items to reorder. Everything saves automatically.",
-  });
+  const note = el("div", { class: "footer-note", text: "Tip: drag items to reorder. Everything saves automatically." });
 
   container.append(header, createPanel, toolbar, list, note);
   document.body.appendChild(container);
@@ -226,41 +200,18 @@ function buildApp() {
   addBtn.addEventListener("click", () => {
     const title = titleInput.value.trim();
     const due = dateInput.value || "";
-    if (!title) {
-      titleInput.focus();
-      return;
-    }
+    if (!title) { titleInput.focus(); return; }
     addTask(title, due);
-    titleInput.value = "";
-    dateInput.value = "";
+    titleInput.value = ""; dateInput.value = "";
   });
-
-  titleInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") addBtn.click();
-  });
-
-  searchInput.addEventListener("input", () => {
-    state.search = searchInput.value.toLowerCase();
-    renderList();
-  });
-
-  filterSelect.addEventListener("change", () => {
-    state.filter = filterSelect.value;
-    renderList();
-  });
-
-  sortSelect.addEventListener("change", () => {
-    state.sort = sortSelect.value;
-    renderList();
-  });
-
+  titleInput.addEventListener("keydown", (e) => { if (e.key === "Enter") addBtn.click(); });
+  searchInput.addEventListener("input", () => { state.search = searchInput.value.toLowerCase(); renderList(); });
+  filterSelect.addEventListener("change", () => { state.filter = filterSelect.value; renderList(); });
+  sortSelect.addEventListener("change", () => { state.sort = sortSelect.value; renderList(); });
   clearAllBtn.addEventListener("click", () => {
-    const hasDone = tasks.some((t) => t.completed);
-    if (!hasDone) return;
-    tasks = tasks.filter((t) => !t.completed);
-    reindexOrder();
-    saveTasks(tasks);
-    renderList();
+    if (!tasks.some(t => t.completed)) return;
+    tasks = tasks.filter(t => !t.completed);
+    reindexOrder(); saveTasks(tasks); renderList();
   });
 
   // Initial draw
@@ -269,12 +220,10 @@ function buildApp() {
   // ---------- Functions ----------
   function addTask(title, due) {
     const t = {
-      id: uid(),
-      title,
-      due, // YYYY-MM-DD
+      id: uid(), title, due,
       completed: false,
       createdAt: new Date().toISOString(),
-      order: tasks.length ? Math.max(...tasks.map((x) => x.order)) + 1 : 0,
+      order: tasks.length ? Math.max(...tasks.map(x => x.order)) + 1 : 0,
     };
     tasks.push(t);
     saveTasks(tasks);
@@ -282,7 +231,7 @@ function buildApp() {
   }
 
   function updateTask(id, patch) {
-    const idx = tasks.findIndex((t) => t.id === id);
+    const idx = tasks.findIndex(t => t.id === id);
     if (idx === -1) return;
     tasks[idx] = { ...tasks[idx], ...patch };
     saveTasks(tasks);
@@ -290,59 +239,42 @@ function buildApp() {
   }
 
   function deleteTask(id) {
-    tasks = tasks.filter((t) => t.id !== id);
+    tasks = tasks.filter(t => t.id !== id);
     reindexOrder();
     saveTasks(tasks);
     renderList();
   }
 
   function reindexOrder() {
-    tasks
-      .sort((a, b) => a.order - b.order)
-      .forEach((t, i) => (t.order = i));
+    tasks.sort((a,b) => a.order - b.order).forEach((t,i) => t.order = i);
   }
 
   function getFilteredSortedTasks() {
     let listArr = [...tasks];
 
     // search
-    if (state.search) {
-      listArr = listArr.filter((t) => t.title.toLowerCase().includes(state.search));
-    }
+    if (state.search) listArr = listArr.filter(t => t.title.toLowerCase().includes(state.search));
 
     // filter
-    if (state.filter === "done") listArr = listArr.filter((t) => t.completed);
-    if (state.filter === "todo") listArr = listArr.filter((t) => !t.completed);
+    if (state.filter === "done") listArr = listArr.filter(t => t.completed);
+    if (state.filter === "todo") listArr = listArr.filter(t => !t.completed);
 
     // sort
-    const byDue = (a, b) => {
+    const byDue = (a,b) => {
       const da = a.due ? new Date(a.due).getTime() : Infinity;
       const db = b.due ? new Date(b.due).getTime() : Infinity;
       return da - db;
     };
-    const byCreated = (a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    const byCreated = (a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 
     switch (state.sort) {
-      case "manual":
-        listArr.sort((a, b) => a.order - b.order);
-        break;
-      case "dueAsc":
-        listArr.sort(byDue);
-        break;
-      case "dueDesc":
-        listArr.sort((a, b) => byDue(b, a));
-        break;
-      case "createdAsc":
-        listArr.sort(byCreated);
-        break;
-      case "createdDesc":
-        listArr.sort((a, b) => byCreated(b, a));
-        break;
-      default:
-        listArr.sort((a, b) => a.order - b.order);
+      case "manual":      listArr.sort((a,b) => a.order - b.order); break;
+      case "dueAsc":      listArr.sort(byDue); break;
+      case "dueDesc":     listArr.sort((a,b) => byDue(b,a)); break;
+      case "createdAsc":  listArr.sort(byCreated); break;
+      case "createdDesc": listArr.sort((a,b) => byCreated(b,a)); break;
+      default:            listArr.sort((a,b) => a.order - b.order);
     }
-
     return listArr;
   }
 
@@ -357,28 +289,17 @@ function buildApp() {
       return;
     }
 
-    data.forEach((t) => list.appendChild(taskItem(t)));
-    enableDragAndDrop(); // bind DnD for freshly rendered items
+    data.forEach(t => list.appendChild(taskItem(t)));
+    enableDragAndDrop(list); // bind DnD for freshly rendered items
   }
 
   function taskItem(t) {
-    const isOverdue =
-      t.due && !t.completed && new Date(t.due) < new Date(new Date().toDateString());
-    const isSoon =
-      t.due &&
-      !t.completed &&
-      !isOverdue &&
-      (new Date(t.due) - new Date()) / (1000 * 60 * 60 * 24) <= 2;
+    const isOverdue = t.due && !t.completed && new Date(t.due) < new Date(new Date().toDateString());
+    const isSoon = t.due && !t.completed && !isOverdue && ((new Date(t.due) - new Date()) / 86400000) <= 2;
 
-    const item = el("div", {
-      class: "item",
-      attrs: { draggable: "true", "data-id": t.id },
-    });
+    const item = el("div", { class: "item", attrs: { draggable: "true", "data-id": t.id } });
 
-    const checkbox = el("input", {
-      class: "checkbox",
-      attrs: { type: "checkbox" },
-    });
+    const checkbox = el("input", { class: "checkbox", attrs: { type: "checkbox" } });
     checkbox.checked = t.completed;
 
     const title = el("div", { class: "title" });
@@ -389,12 +310,8 @@ function buildApp() {
       "div",
       { class: "tags" },
       el("span", { class: "tag", text: `Created: ${formatDate(t.createdAt)}` }),
-      el("span", {
-        class: "tag" + (isOverdue ? " overdue" : isSoon ? " due-soon" : ""),
-        text: t.due ? `Due: ${formatDate(t.due)}` : "No due date",
-      })
+      el("span", { class: "tag" + (isOverdue ? " overdue" : isSoon ? " due-soon" : ""), text: t.due ? `Due: ${formatDate(t.due)}` : "No due date" })
     );
-
     const meta = el("div", { class: "meta" }, tags);
 
     const right = el(
@@ -407,10 +324,7 @@ function buildApp() {
     const leftWrap = el("div", {}, checkbox);
     item.append(leftWrap, title, meta, right);
 
-    // Behavior
-    checkbox.addEventListener("change", () => {
-      updateTask(t.id, { completed: checkbox.checked });
-    });
+    checkbox.addEventListener("change", () => updateTask(t.id, { completed: checkbox.checked }));
 
     return item;
   }
@@ -427,31 +341,18 @@ function buildApp() {
     const id = t.id;
     clearElement(itemEl);
 
-    const checkbox = el("input", {
-      class: "checkbox",
-      attrs: { type: "checkbox", disabled: "true" },
-    });
+    const checkbox = el("input", { class: "checkbox", attrs: { type: "checkbox", disabled: "true" } });
     checkbox.checked = t.completed;
 
-    const titleInput = el("input", {
-      class: "input",
-      attrs: { type: "text", value: t.title, placeholder: "Task title" },
-    });
-
-    const dateInput = el("input", {
-      class: "input",
-      attrs: { type: "date", value: t.due || "" },
-    });
+    const titleInput = el("input", { class: "input", attrs: { type: "text", value: t.title, placeholder: "Task title" } });
+    const dateInput  = el("input", { class: "input", attrs: { type: "date", value: t.due || "" } });
 
     const actions = el(
       "div",
       { class: "right" },
       iconBtn("💾 Save", () => {
         const newTitle = titleInput.value.trim();
-        if (!newTitle) {
-          titleInput.focus();
-          return;
-        }
+        if (!newTitle) { titleInput.focus(); return; }
         updateTask(id, { title: newTitle, due: dateInput.value || "" });
       }),
       iconBtn("↩ Cancel", () => renderList())
@@ -459,54 +360,50 @@ function buildApp() {
 
     const left = el("div", {}, checkbox);
     const titleWrap = el("div", {}, titleInput);
-    const metaWrap = el("div", { class: "meta" }, dateInput);
+    const metaWrap  = el("div", { class: "meta" }, dateInput);
     itemEl.append(left, titleWrap, metaWrap, actions);
   }
 
-  // Drag & Drop Reorder — контейнер-ориентированная версия (стабильно)
-  function enableDragAndDrop() {
-    const container = list;
-    let draggingEl = null;
-
-    // чтобы не навешивать дублирующие обработчики на контейнер
+  // Drag & Drop Reorder — фикс замыкания: состояние хранится на контейнере
+  function enableDragAndDrop(container) {
+    // Навешиваем обработчики контейнера один раз.
     if (!container._dndBound) {
       container.addEventListener("dragover", (e) => {
         e.preventDefault();
-        if (!draggingEl) return;
+        const dragging = container._draggingEl;
+        if (!dragging) return;
+
         const after = getDragAfterElement(container, e.clientY);
-        if (!after) {
-          container.appendChild(draggingEl);
-        } else {
-          container.insertBefore(draggingEl, after);
-        }
+        if (!after) container.appendChild(dragging);
+        else container.insertBefore(dragging, after);
       });
       container.addEventListener("drop", (e) => e.preventDefault());
       container._dndBound = true;
     }
 
+    // На каждый .item — свежие обработчики после каждой перерисовки
     container.querySelectorAll(".item").forEach((it) => {
       it.addEventListener("dragstart", (e) => {
-        draggingEl = it;
+        container._draggingEl = it;
         it.classList.add("dragging");
         e.dataTransfer.effectAllowed = "move";
-        // Firefox fix: нужно что-то положить в dataTransfer
-        try { e.dataTransfer.setData("text/plain", it.getAttribute("data-id") || ""); } catch (_) {}
+        // Firefox fix
+        try { e.dataTransfer.setData("text/plain", it.getAttribute("data-id") || ""); } catch(_) {}
       });
 
       it.addEventListener("dragend", () => {
         it.classList.remove("dragging");
-        draggingEl = null;
+        container._draggingEl = null;
 
         // Сохраняем новый порядок по DOM
-        const ids = Array.from(container.querySelectorAll(".item"))
-          .map((x) => x.getAttribute("data-id"));
+        const ids = Array.from(container.querySelectorAll(".item")).map(x => x.getAttribute("data-id"));
         ids.forEach((id, index) => {
-          const t = tasks.find((tt) => tt.id === id);
+          const t = tasks.find(tt => tt.id === id);
           if (t) t.order = index;
         });
         saveTasks(tasks);
 
-        // Если пользователь случайно включил сортировку по дате — вернём manual
+        // Возвращаем manual, если выбрана была сортировка по дате
         if (state.sort !== "manual") state.sort = "manual";
         renderList();
       });
