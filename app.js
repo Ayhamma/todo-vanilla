@@ -50,8 +50,8 @@ let tasks = loadTasks(); // [{id,title,due,completed,createdAt,order}]
 
 let state = {
   search: "",
-  filter: "all", // all | done | todo
-  sort: "dueAsc", // dueAsc | dueDesc | createdAsc | createdDesc
+  filter: "all",       // all | done | todo
+  sort: "manual",      // manual | dueAsc | dueDesc | createdAsc | createdDesc
 };
 
 // ---------- Styles (Injected) ----------
@@ -197,6 +197,7 @@ function buildApp() {
   const sortSelect = el(
     "select",
     { class: "select" },
+    el("option", { text: "Manual (custom)", attrs: { value: "manual", selected: "selected" } }),
     el("option", { text: "Sort by due ↑", attrs: { value: "dueAsc" } }),
     el("option", { text: "Sort by due ↓", attrs: { value: "dueDesc" } }),
     el("option", { text: "Created (old → new)", attrs: { value: "createdAsc" } }),
@@ -323,6 +324,9 @@ function buildApp() {
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 
     switch (state.sort) {
+      case "manual":
+        listArr.sort((a, b) => a.order - b.order);
+        break;
       case "dueAsc":
         listArr.sort(byDue);
         break;
@@ -354,7 +358,7 @@ function buildApp() {
     }
 
     data.forEach((t) => list.appendChild(taskItem(t)));
-    enableDragAndDrop();
+    enableDragAndDrop(); // bind DnD for freshly rendered items
   }
 
   function taskItem(t) {
@@ -459,54 +463,66 @@ function buildApp() {
     itemEl.append(left, titleWrap, metaWrap, actions);
   }
 
-  // Drag & Drop Reorder
+  // Drag & Drop Reorder — контейнер-ориентированная версия (стабильно)
   function enableDragAndDrop() {
-    const items = list.querySelectorAll(".item");
+    const container = list;
     let draggingEl = null;
 
-    items.forEach((it) => {
+    // чтобы не навешивать дублирующие обработчики на контейнер
+    if (!container._dndBound) {
+      container.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        if (!draggingEl) return;
+        const after = getDragAfterElement(container, e.clientY);
+        if (!after) {
+          container.appendChild(draggingEl);
+        } else {
+          container.insertBefore(draggingEl, after);
+        }
+      });
+      container.addEventListener("drop", (e) => e.preventDefault());
+      container._dndBound = true;
+    }
+
+    container.querySelectorAll(".item").forEach((it) => {
       it.addEventListener("dragstart", (e) => {
         draggingEl = it;
         it.classList.add("dragging");
         e.dataTransfer.effectAllowed = "move";
+        // Firefox fix: нужно что-то положить в dataTransfer
+        try { e.dataTransfer.setData("text/plain", it.getAttribute("data-id") || ""); } catch (_) {}
       });
 
       it.addEventListener("dragend", () => {
-        if (draggingEl) draggingEl.classList.remove("dragging");
+        it.classList.remove("dragging");
         draggingEl = null;
-        // Persist new order based on DOM position
-        const ids = Array.from(list.querySelectorAll(".item")).map((x) =>
-          x.getAttribute("data-id")
-        );
+
+        // Сохраняем новый порядок по DOM
+        const ids = Array.from(container.querySelectorAll(".item"))
+          .map((x) => x.getAttribute("data-id"));
         ids.forEach((id, index) => {
-          const task = tasks.find((t) => t.id === id);
-          if (task) task.order = index;
+          const t = tasks.find((tt) => tt.id === id);
+          if (t) t.order = index;
         });
         saveTasks(tasks);
-        renderList();
-      });
 
-      it.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        const after = getDragAfterElement(list, e.clientY);
-        if (!after) {
-          list.appendChild(draggingEl);
-        } else {
-          list.insertBefore(draggingEl, after);
-        }
+        // Если пользователь случайно включил сортировку по дате — вернём manual
+        if (state.sort !== "manual") state.sort = "manual";
+        renderList();
       });
     });
 
     function getDragAfterElement(container, y) {
       const els = [...container.querySelectorAll(".item:not(.dragging)")];
-      return els
-        .map((el) => {
-          const rect = el.getBoundingClientRect();
-          const offset = y - rect.top - rect.height / 2;
-          return { el, offset };
-        })
-        .filter((o) => o.offset < 0)
-        .sort((a, b) => b.offset - a.offset)[0]?.el || null;
+      let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+      for (const el of els) {
+        const box = el.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          closest = { offset, element: el };
+        }
+      }
+      return closest.element;
     }
   }
 }
