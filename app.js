@@ -1,10 +1,9 @@
 // ====== Minimal, framework-free ToDo App (Vanilla JS + DOM) ======
 // All UI is created dynamically. Styles are injected via <style>.
-// Features: Add, Edit, Delete, Complete toggle, Sort by date, Filter by status,
-// Search by title, Drag & Drop reordering, Persist to localStorage.
-// IMPORTANT: No innerHTML usage (forbidden by assignment).
+// Features: Add, Edit (multi-open), Delete, Complete, Sort, Filter, Search,
+// Drag & Drop reordering, Persist to localStorage.
+// IMPORTANT: No innerHTML usage.
 
-// ---------- Utils ----------
 const LS_KEY = "todo.tasks.v1";
 
 const uid = () =>
@@ -40,21 +39,17 @@ const loadTasks = () => {
   }
 };
 
-// Helper to avoid innerHTML
-function clearElement(el) {
-  while (el.firstChild) el.removeChild(el.firstChild);
-}
+function clearElement(el) { while (el.firstChild) el.removeChild(el.firstChild); }
 
 // ---------- State ----------
 let tasks = loadTasks(); // [{id,title,due,completed,createdAt,order}]
-
 let state = {
   search: "",
   filter: "all",    // all | done | todo
   sort: "manual",   // manual | dueAsc | dueDesc | createdAsc | createdDesc
 };
 
-// ---------- Styles (Injected) ----------
+// ---------- Styles ----------
 const css = `
 :root{
   --bg:#0f172a; --panel:#111827; --muted:#9ca3af; --txt:#e5e7eb;
@@ -63,10 +58,8 @@ const css = `
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{
-  margin:0; background:linear-gradient(180deg, var(--bg), #030712);
-  color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-}
+body{ margin:0; background:linear-gradient(180deg, var(--bg), #030712);
+  color:var(--txt); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
 .container{ max-width:960px; margin:32px auto; padding:16px; }
 .header{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
 .brand{ display:flex; align-items:center; gap:10px; }
@@ -114,7 +107,6 @@ body{
 .small{ font-size:12px; color:var(--muted) }
 `;
 
-// ---------- Build Root UI ----------
 function injectStyles() {
   const style = document.createElement("style");
   style.appendChild(document.createTextNode(css));
@@ -135,7 +127,6 @@ function el(tag, opts = {}, ...children) {
 function buildApp() {
   const container = el("div", { class: "container" });
 
-  // Header
   const header = el(
     "div",
     { class: "header" },
@@ -148,26 +139,15 @@ function buildApp() {
     el("div", { class: "small", text: "All data stored locally (localStorage)" })
   );
 
-  // Create Panel
   const createPanel = el("div", { class: "panel" });
-  const titleInput = el("input", {
-    class: "input",
-    attrs: { type: "text", placeholder: "New task title…" },
-  });
-  const dateInput = el("input", {
-    class: "input",
-    attrs: { type: "date" },
-  });
-  const addBtn = el("button", { class: "btn btn-primary", text: "Add Task" });
-  const createRow = el("div", { class: "form-row" }, titleInput, dateInput, addBtn);
+  const titleInput = el("input", { class: "input", attrs: { type: "text", placeholder: "New task title…" } });
+  const dateInput  = el("input", { class: "input", attrs: { type: "date" } });
+  const addBtn     = el("button", { class: "btn btn-primary", text: "Add Task" });
+  const createRow  = el("div", { class: "form-row" }, titleInput, dateInput, addBtn);
   createPanel.appendChild(createRow);
 
-  // Toolbar
   const toolbar = el("div", { class: "toolbar" });
-  const searchInput = el("input", {
-    class: "input",
-    attrs: { type: "search", placeholder: "Search by title…" },
-  });
+  const searchInput = el("input", { class: "input", attrs: { type: "search", placeholder: "Search by title…" } });
   const filterSelect = el(
     "select",
     { class: "select" },
@@ -187,16 +167,12 @@ function buildApp() {
   const clearAllBtn = el("button", { class: "btn btn-ghost", text: "Clear Completed" });
   toolbar.append(searchInput, filterSelect, sortSelect, clearAllBtn);
 
-  // List
   const list = el("div", { class: "list", attrs: { id: "task-list" } });
-
-  // Footer note
   const note = el("div", { class: "footer-note", text: "Tip: drag items to reorder. Everything saves automatically." });
 
   container.append(header, createPanel, toolbar, list, note);
   document.body.appendChild(container);
 
-  // ---------- Events ----------
   addBtn.addEventListener("click", () => {
     const title = titleInput.value.trim();
     const due = dateInput.value || "";
@@ -214,10 +190,9 @@ function buildApp() {
     reindexOrder(); saveTasks(tasks); renderList();
   });
 
-  // Initial draw
   renderList();
 
-  // ---------- Functions ----------
+  // ---------- Logic ----------
   function addTask(title, due) {
     const t = {
       id: uid(), title, due,
@@ -230,12 +205,13 @@ function buildApp() {
     renderList();
   }
 
-  function updateTask(id, patch) {
+  // NEW: updateTask с опцией rerender (по умолчанию true)
+  function updateTask(id, patch, opts = { rerender: true }) {
     const idx = tasks.findIndex(t => t.id === id);
     if (idx === -1) return;
     tasks[idx] = { ...tasks[idx], ...patch };
     saveTasks(tasks);
-    renderList();
+    if (opts.rerender) renderList();
   }
 
   function deleteTask(id) {
@@ -250,16 +226,11 @@ function buildApp() {
   }
 
   function getFilteredSortedTasks() {
-    let listArr = [...tasks];
+    let arr = [...tasks];
+    if (state.search) arr = arr.filter(t => t.title.toLowerCase().includes(state.search));
+    if (state.filter === "done") arr = arr.filter(t => t.completed);
+    if (state.filter === "todo") arr = arr.filter(t => !t.completed);
 
-    // search
-    if (state.search) listArr = listArr.filter(t => t.title.toLowerCase().includes(state.search));
-
-    // filter
-    if (state.filter === "done") listArr = listArr.filter(t => t.completed);
-    if (state.filter === "todo") listArr = listArr.filter(t => !t.completed);
-
-    // sort
     const byDue = (a,b) => {
       const da = a.due ? new Date(a.due).getTime() : Infinity;
       const db = b.due ? new Date(b.due).getTime() : Infinity;
@@ -268,14 +239,14 @@ function buildApp() {
     const byCreated = (a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 
     switch (state.sort) {
-      case "manual":      listArr.sort((a,b) => a.order - b.order); break;
-      case "dueAsc":      listArr.sort(byDue); break;
-      case "dueDesc":     listArr.sort((a,b) => byDue(b,a)); break;
-      case "createdAsc":  listArr.sort(byCreated); break;
-      case "createdDesc": listArr.sort((a,b) => byCreated(b,a)); break;
-      default:            listArr.sort((a,b) => a.order - b.order);
+      case "manual":      arr.sort((a,b) => a.order - b.order); break;
+      case "dueAsc":      arr.sort(byDue); break;
+      case "dueDesc":     arr.sort((a,b) => byDue(b,a)); break;
+      case "createdAsc":  arr.sort(byCreated); break;
+      case "createdDesc": arr.sort((a,b) => byCreated(b,a)); break;
+      default:            arr.sort((a,b) => a.order - b.order);
     }
-    return listArr;
+    return arr;
   }
 
   function renderList() {
@@ -289,11 +260,12 @@ function buildApp() {
       return;
     }
 
-    data.forEach(t => list.appendChild(taskItem(t)));
-    enableDragAndDrop(list); // bind DnD for freshly rendered items
+    data.forEach(t => list.appendChild(taskView(t)));
+    enableDragAndDrop(list);
   }
 
-  function taskItem(t) {
+  // ----- Views -----
+  function taskView(t) {
     const isOverdue = t.due && !t.completed && new Date(t.due) < new Date(new Date().toDateString());
     const isSoon = t.due && !t.completed && !isOverdue && ((new Date(t.due) - new Date()) / 86400000) <= 2;
 
@@ -336,9 +308,9 @@ function buildApp() {
     return b;
   }
 
-  // Inline edit (title + date)
+  // ----- Inline Edit (multi-open) -----
   function startEdit(itemEl, t) {
-    const id = t.id;
+    // не перерисовываем список целиком — только текущий элемент
     clearElement(itemEl);
 
     const checkbox = el("input", { class: "checkbox", attrs: { type: "checkbox", disabled: "true" } });
@@ -353,9 +325,19 @@ function buildApp() {
       iconBtn("💾 Save", () => {
         const newTitle = titleInput.value.trim();
         if (!newTitle) { titleInput.focus(); return; }
-        updateTask(id, { title: newTitle, due: dateInput.value || "" });
+        // Обновляем данные без глобального renderList
+        updateTask(t.id, { title: newTitle, due: dateInput.value || "" }, { rerender: false });
+        const updated = tasks.find(x => x.id === t.id);
+        const fresh = taskView(updated);
+        itemEl.replaceWith(fresh);
+        // Перепривяжем DnD для новой ноды:
+        bindDndForItem(list, fresh);
       }),
-      iconBtn("↩ Cancel", () => renderList())
+      iconBtn("↩ Cancel", () => {
+        const fresh = taskView(tasks.find(x => x.id === t.id) || t);
+        itemEl.replaceWith(fresh);
+        bindDndForItem(list, fresh);
+      })
     );
 
     const left = el("div", {}, checkbox);
@@ -364,15 +346,14 @@ function buildApp() {
     itemEl.append(left, titleWrap, metaWrap, actions);
   }
 
-  // Drag & Drop Reorder — фикс замыкания: состояние хранится на контейнере
+  // ----- Drag & Drop -----
   function enableDragAndDrop(container) {
-    // Навешиваем обработчики контейнера один раз.
+    // контейнерные обработчики — один раз
     if (!container._dndBound) {
       container.addEventListener("dragover", (e) => {
         e.preventDefault();
         const dragging = container._draggingEl;
         if (!dragging) return;
-
         const after = getDragAfterElement(container, e.clientY);
         if (!after) container.appendChild(dragging);
         else container.insertBefore(dragging, after);
@@ -380,47 +361,45 @@ function buildApp() {
       container.addEventListener("drop", (e) => e.preventDefault());
       container._dndBound = true;
     }
+    // на каждый элемент — если еще не привязано
+    container.querySelectorAll(".item").forEach((it) => bindDndForItem(container, it));
+  }
 
-    // На каждый .item — свежие обработчики после каждой перерисовки
-    container.querySelectorAll(".item").forEach((it) => {
-      it.addEventListener("dragstart", (e) => {
-        container._draggingEl = it;
-        it.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        // Firefox fix
-        try { e.dataTransfer.setData("text/plain", it.getAttribute("data-id") || ""); } catch(_) {}
-      });
-
-      it.addEventListener("dragend", () => {
-        it.classList.remove("dragging");
-        container._draggingEl = null;
-
-        // Сохраняем новый порядок по DOM
-        const ids = Array.from(container.querySelectorAll(".item")).map(x => x.getAttribute("data-id"));
-        ids.forEach((id, index) => {
-          const t = tasks.find(tt => tt.id === id);
-          if (t) t.order = index;
-        });
-        saveTasks(tasks);
-
-        // Возвращаем manual, если выбрана была сортировка по дате
-        if (state.sort !== "manual") state.sort = "manual";
-        renderList();
-      });
+  function bindDndForItem(container, it) {
+    if (it._dndItemBound) return;
+    it.addEventListener("dragstart", (e) => {
+      container._draggingEl = it;
+      it.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+      try { e.dataTransfer.setData("text/plain", it.getAttribute("data-id") || ""); } catch(_) {}
     });
+    it.addEventListener("dragend", () => {
+      it.classList.remove("dragging");
+      container._draggingEl = null;
+      // сохраняем порядок
+      const ids = Array.from(container.querySelectorAll(".item")).map(x => x.getAttribute("data-id"));
+      ids.forEach((id, index) => {
+        const t = tasks.find(tt => tt.id === id);
+        if (t) t.order = index;
+      });
+      saveTasks(tasks);
+      if (state.sort !== "manual") state.sort = "manual";
+      // ВНИМАНИЕ: не делаем renderList(), чтобы не закрывать другие открытые формы редактирования
+    });
+    it._dndItemBound = true;
+  }
 
-    function getDragAfterElement(container, y) {
-      const els = [...container.querySelectorAll(".item:not(.dragging)")];
-      let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
-      for (const el of els) {
-        const box = el.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-          closest = { offset, element: el };
-        }
+  function getDragAfterElement(container, y) {
+    const els = [...container.querySelectorAll(".item:not(.dragging)")];
+    let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+    for (const el of els) {
+      const box = el.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        closest = { offset, element: el };
       }
-      return closest.element;
     }
+    return closest.element;
   }
 }
 
